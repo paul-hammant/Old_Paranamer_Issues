@@ -1,0 +1,65 @@
+Index: src/test/test.jar
+===================================================================
+Cannot display: file marked as a binary type.
+svn:mime-type = application/octet-stream
+
+Property changes on: src\test\test.jar
+___________________________________________________________________
+Name: svn:mime-type
+   + application/octet-stream
+
+Index: src/test/com/thoughtworks/paranamer/AbstractParanamerTestCase.java
+===================================================================
+--- src/test/com/thoughtworks/paranamer/AbstractParanamerTestCase.java	(revision 219)
++++ src/test/com/thoughtworks/paranamer/AbstractParanamerTestCase.java	(working copy)
+@@ -77,6 +77,7 @@
+     }
+ 
+     private String toCSV(String[] names) {
++        assertNotNull(names);
+         StringBuffer sb = new StringBuffer();
+         for ( int i = 0; i < names.length; i++ ){
+             sb.append(names[i]);
+Index: src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java
+===================================================================
+--- src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(revision 219)
++++ src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(working copy)
+@@ -32,6 +32,8 @@
+ 
+ import java.lang.reflect.Method;
+ import java.lang.reflect.Constructor;
++import java.net.URL;
++import java.net.URLClassLoader;
+ 
+ 
+ /**
+@@ -115,6 +117,16 @@
+         assertThatParameterNamesMatch("a", names);
+     }
+ 
++    public void testRetrievesParameterNamesFromAConstructorInJar() throws ClassNotFoundException, SecurityException, 
++            NoSuchMethodException {
++        URL url = getClass().getResource("/test.jar");
++        URLClassLoader classLoader = new URLClassLoader(new URL[] {url});
++        Class clazz = Class.forName("com.thoughtworks.paranamer.SpecificMethodSearchable", true, classLoader);
++        
++        BytecodeReadingParanamer asm = new BytecodeReadingParanamer();
++        String[] names = asm.lookupParameterNames(clazz.getConstructor(new Class[] {String.class}));
++        assertThatParameterNamesMatch("foo", names);
++    }
+ 
+     public static class SpecificMethodSearchable {
+ 
+Index: src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java
+===================================================================
+--- src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java	(revision 219)
++++ src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java	(working copy)
+@@ -114,7 +114,7 @@
+     }
+ 
+     private InputStream getClassAsStream(ClassLoader classLoader, String className) {
+-        String name = '/' + className.replace('.', '/') + ".class";
++        String name = className.replace('.', '/') + ".class";
+         // better pre-cache all methods otherwise this content will be loaded
+         // multiple times
+         InputStream asStream = classLoader.getResourceAsStream(name);

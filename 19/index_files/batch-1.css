@@ -50,6 +50,11 @@ body { min-width: 0px; }
 .filter-details-section .manage-links > li::after, #delete-filter-dialog .manage-links > li::after { content: "·"; margin: 0px 8px; }
 .filter-details-section .manage-links > li:last-child::after, #delete-filter-dialog .manage-links > li:last-child::after { display: none; }
 #issue-content { background-color: rgb(255, 255, 255); height: 100%; }
+.navigator-sidebar { box-sizing: border-box; border-right: 1px solid rgb(221, 221, 221); padding: 15px 10px; width: 200px; position: relative; }
+.navigator-sidebar .toggle-filter-panel { color: rgb(112, 112, 112); display: block; }
+.navigator-sidebar .toggle-filter-panel:hover { color: rgb(112, 112, 112); text-decoration: none; }
+.navigator-sidebar.collapsed { padding: 15px 0px; width: 30px; }
+.navigator-sidebar.collapsed .toggle-filter-panel { background-repeat: no-repeat; background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAA3NCSVQICAjb4U/gAAAAFVBMVEX///9wcHBwcHBwcHBwcHBwcHBwcHA3RenHAAAAB3RSTlMAEWaZqsz/1Xa43AAAAAlwSFlzAAALEgAACxIB0t1+/AAAABR0RVh0Q3JlYXRpb24gVGltZQA2LzEvMTM4qUXQAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAACxJREFUCJljYCAGsBowBIMZTMkMagZglpojU4oAWCiVQS0AhQGTgiuGaycMAK1gBfsWentsAAAAAElFTkSuQmCC"); background-position: right -1px; height: 16px; margin: 0px 6px 0px 0px; padding: 0px; }
 .filter-list > li .filter-link:hover + .filter-actions > span::after, .filter-list > li .filter-link:active + .filter-actions > span::after, .filter-list > li .filter-link.active + .filter-actions > span::after, .filter-list > li .filter-link:focus + .filter-actions > span::after { border-top-color: rgb(51, 51, 51); }
 .filter-list > li .filter-link:hover + .filter-actions > span:hover::after, .filter-list > li .filter-link:active + .filter-actions > span:hover::after, .filter-list > li .filter-link.active + .filter-actions > span:hover::after, .filter-list > li .filter-link:focus + .filter-actions > span:hover::after, .filter-list > li .filter-link:hover + .filter-actions > span.active::after, .filter-list > li .filter-link:active + .filter-actions > span.active::after, .filter-list > li .filter-link.active + .filter-actions > span.active::after, .filter-list > li .filter-link:focus + .filter-actions > span.active::after { border-top-color: rgb(255, 255, 255); }
 .filter-list > li:hover > .filter-actions > span::after, .filter-list > li.hover > .filter-actions > span::after { border-top-color: rgb(51, 51, 51); }
@@ -62,7 +67,9 @@ body { min-width: 0px; }
 .list-ordering .order-options::before { border-left: 1px solid rgb(221, 221, 221); content: ""; height: 16px; position: absolute; left: 0px; top: 0px; width: 1px; }
 .list-ordering .order-options::after { border-width: 4px; border-style: solid; border-right: 4px solid transparent; border-color: rgb(119, 119, 119) transparent transparent; -moz-border-top-colors: none; -moz-border-right-colors: none; -moz-border-bottom-colors: none; -moz-border-left-colors: none; border-image: none; content: ""; height: 0px; position: absolute; right: 6px; top: 6px; width: 0px; }
 .list-ordering .order-options:hover::after { border-top-color: rgb(17, 17, 17); }
+.ui-popout-detached { position: fixed; z-index: 100; top: 41px; display: block; background-color: rgb(245, 245, 245); left: 0px; border-bottom: 1px solid rgb(221, 221, 221); }
 .ui-popout-detached::after { content: ""; height: 20px; position: absolute; bottom: -21px; left: 0px; background: none repeat scroll 0% 0% rgb(245, 245, 245); width: 100%; padding-right: 6px; z-index: 999; }
+.navigator-issue-only .ui-popout-detached { display: none; }
 .dialog-help-tip > :first-child { margin-top: 0px; }
 .column-picker-trigger::after { border-width: 4px; border-style: solid; border-right: 4px solid transparent; border-color: rgb(17, 17, 17) transparent transparent; -moz-border-top-colors: none; -moz-border-right-colors: none; -moz-border-bottom-colors: none; -moz-border-left-colors: none; border-image: none; content: ""; height: 0px; position: absolute; right: 8px; top: 13px; width: 0px; }
 .column-picker-trigger[aria-disabled]::after { border-top-color: rgb(153, 153, 153); }
@@ -168,6 +175,9 @@ a:hover, a:focus, a:active { color: rgb(0, 153, 0); }
 .module > .mod-content .issues > li .issue::after { content: "."; }
 .criteria-item > .aui-buttons .aui-button::after, .criteria-item > .aui-buttons .aui-button::before { color: inherit; }
 .criteria-post-functions .criteria-item::before { content: counter(postFunctions, decimal) "."; float: left; margin-left: -30px; width: 20px; text-align: right; }
+.twixi-block.collapsed .twixi-content, .toggle-wrap.collapsed .twixi-content, .twixi-block.collapsed .twixi-wrap.verbose, .toggle-wrap.collapsed .twixi-wrap.verbose, .twixi-block.collapsed .toggle-block, .toggle-wrap.collapsed .toggle-block, .twixi-block.collapsed .mod-content, .toggle-wrap.collapsed .mod-content { display: none; }
+.twixi-block.collapsed .twixi-wrap.concise, .toggle-wrap.collapsed .twixi-wrap.concise { display: block; }
+.twixi-block.collapsed .icon-twixi, .toggle-wrap.collapsed .icon-twixi, .twixi-block.collapsed .twixi-closed, .toggle-wrap.collapsed .twixi-closed, .twixi-block.collapsed .toggle-title, .toggle-wrap.collapsed .toggle-title { background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAA3NCSVQICAjb4U/gAAAAJFBMVEX///9wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHDRPAkXAAAADHRSTlMAESIziJmqu8zd7v+91kxoAAAACXBIWXMAAAsSAAALEgHS3X78AAAAFnRFWHRDcmVhdGlvbiBUaW1lADIxLzEyLzEymvNa/wAAABx0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzIENTNui8sowAAAArSURBVAiZY2DAB1iaoAy2XQZQVvRiKIMVLlQ9AU0EpoZjhwLUnEa81iABAFHzB8GYPzdNAAAAAElFTkSuQmCC"); }
 .twixi-block .twixi-content, .toggle-wrap .twixi-content, .twixi-block .twixi-wrap.verbose, .toggle-wrap .twixi-wrap.verbose, .twixi-block .toggle-block, .toggle-wrap .toggle-block, .twixi-block .mod-content, .toggle-wrap .mod-content { display: block; }
 .twixi-block .twixi-wrap.concise, .toggle-wrap .twixi-wrap.concise { display: none; }
 .twixi-block .toggle-title, .toggle-wrap .toggle-title, .twixi-block .twixi-wrap, .toggle-wrap .twixi-wrap, .twixi-block .twixi-trigger, .toggle-wrap .twixi-trigger { padding-left: 20px; position: relative; }

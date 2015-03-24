@@ -1,0 +1,612 @@
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html C:\Devel\paranamer-original\paranamer-git-master\paranamer\src\test\com\thoughtworks\paranamer\AbstractParanamerTestCase.java C:\Devel\paranamer\paranamer-git-master\paranamer\src\test\com\thoughtworks\paranamer\AbstractParanamerTestCase.java
+--- \old\paranamer-git-master\paranamer\src\test\com\thoughtworks\paranamer\AbstractParanamerTestCase.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer\src\test\com\thoughtworks\paranamer\AbstractParanamerTestCase.java	Tue May 28 22:45:53 2013
+@@ -53,7 +53,7 @@
+ 
+     @Test
+     public void testLookupParameterNamesForMethodWhenNoArg() throws Exception {
+-        Method method = DefaultParanamer.class.getMethod("toString", new Class[0]);
++        Method method = DefaultParanamer.class.getMethod("toString", new Class<?>[0]);
+         String[] names = paranamer.lookupParameterNames(method);
+         Assert.assertEquals(0, names.length);
+     }
+@@ -67,28 +67,44 @@
+ 
+     @Test
+     public void testLookupParameterNamesForPrivateMethod() throws Exception {
+-        Method m = DefaultParanamer.class.getDeclaredMethod("getParameterTypeName", new Class[] {Class.class});
++        Method m = DefaultParanamer.class.getDeclaredMethod("getParameterTypeName", new Class<?>[] {Class.class});
+         String[] names = paranamer.lookupParameterNames(m);
+         assertThatParameterNamesMatch("cls", names);
+     }
+ 
+     @Test
+     public void testLookupParameterNamesForInterfaceMethod() throws Exception {
+-        Method m = Paranamer.class.getDeclaredMethod("lookupParameterNames", new Class[] {AccessibleObject.class, boolean.class});
++        Method m = Paranamer.class.getDeclaredMethod("lookupParameterNames", new Class<?>[] {AccessibleObject.class, boolean.class});
+         String[] names = paranamer.lookupParameterNames(m);
+         assertThatParameterNamesMatch("methodOrConstructor,throwExceptionIfMissing", names);
+     }
+ 
++    @Test
++    public void testLookupParameterNamesForMethodWithInnerClassParameter() throws Exception {
++        Method m = AbstractParanamerTestCase.class.getDeclaredMethod("sampleMethodWithInnerClassParameter", new Class<?>[] { InnerClass.class });
++        String[] names = paranamer.lookupParameterNames(m);
++        assertThatParameterNamesMatch("theParameter", names);
++    }
++
++    public static final String __PARANAMER_DATA = "v1.0 \n"
++            + "sampleMethodWithInnerClassParameter " + InnerClass.class.getName() + " theParameter \n";
++
++    public void sampleMethodWithInnerClassParameter(InnerClass theParameter) {
++    }
++
++    public static class InnerClass {
++    }
++
+     protected void assertThatParameterNamesMatch(String csv, String[] names) {
+         assertEquals(csv, toCSV(names));
+     }
+ 
+     private String toCSV(String[] names) {
+         assertNotNull(names);
+-        StringBuffer sb = new StringBuffer();
+-        for ( int i = 0; i < names.length; i++ ){
++        StringBuilder sb = new StringBuilder();
++        for (int i = 0; i < names.length; i++){
+             sb.append(names[i]);
+-            if ( i < names.length -1 ){
++            if (i < names.length - 1){
+                 sb.append(",");
+             }            
+         }
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\AddFieldAdapter.java \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\AddFieldAdapter.java
+--- \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\AddFieldAdapter.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\AddFieldAdapter.java	Tue May 28 20:05:02 2013
+@@ -24,6 +24,7 @@
+         this.fValue= fValue;
+     }
+ 
++    @Override
+     public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
+         if (name.equals(fName)) {
+             isFieldPresent = true;
+@@ -31,6 +32,7 @@
+         return cv.visitField(access, name, desc, signature, value);
+     }
+ 
++    @Override
+     public void visitEnd() {
+         if (!isFieldPresent) {
+             FieldVisitor fv = cv.visitField(fAcc, fName, fDesc, null, fValue);
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\Enhancer.java \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\Enhancer.java
+--- \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\Enhancer.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\Enhancer.java	Tue May 28 21:24:27 2013
+@@ -46,34 +46,26 @@
+  */
+ public class Enhancer implements Opcodes {
+ 
+-	public void enhance(File classFile, String parameterNameData)
+-			throws IOException {
+-
+-		byte[] classBytecode = addExtraStaticField(classFile, parameterNameData);
+-		FileOutputStream os = new FileOutputStream(classFile);
+-		os.write(classBytecode);
+-		os.close();
+-	}
+-
+-	private byte[] addExtraStaticField(File classFile,
+-			final String parameterNameData) throws IOException {
+-
+-		InputStream inputStream = new FileInputStream(classFile);
+-		ClassReader reader = new ClassReader(inputStream);
+-
+-		ClassWriter writer = new ClassWriter(reader, 0);
+-		// TODO fix problem with inner classes, two classes in one classFile and
+-		// so on...
+-		// TODO doc typo on page 21: recommended
+-
+-		AddFieldAdapter adapter = new AddFieldAdapter(writer, ACC_PUBLIC
+-				+ ACC_FINAL + ACC_STATIC, "__PARANAMER_DATA",
+-				"Ljava/lang/String;", parameterNameData);
+-
+-		reader.accept(adapter, 0);
+-
+-		inputStream.close();
+-		return writer.toByteArray();
+-	}
++    public void enhance(File classFile, String parameterNameData) throws IOException {
++        byte[] classBytecode = addExtraStaticField(classFile, parameterNameData);
++        FileOutputStream os = new FileOutputStream(classFile);
++        os.write(classBytecode);
++        os.close();
++    }
++
++    private byte[] addExtraStaticField(File classFile, final String parameterNameData) throws IOException {
++        InputStream inputStream = new FileInputStream(classFile);
++        ClassReader reader = new ClassReader(inputStream);
++
++        ClassWriter writer = new ClassWriter(reader, 0);
++        // TODO doc typo on page 21: recommended
++        AddFieldAdapter adapter = new AddFieldAdapter(writer, ACC_PUBLIC + ACC_FINAL + ACC_STATIC,
++                "__PARANAMER_DATA", "Ljava/lang/String;", parameterNameData);
++
++        reader.accept(adapter, 0);
++
++        inputStream.close();
++        return writer.toByteArray();
++    }
+ 
+ }
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\QdoxParanamerGenerator.java \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\QdoxParanamerGenerator.java
+--- \old\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\QdoxParanamerGenerator.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer-generator\src\java\com\thoughtworks\paranamer\generator\QdoxParanamerGenerator.java	Tue May 28 23:01:20 2013
+@@ -33,10 +33,11 @@
+ import com.thoughtworks.qdox.model.JavaClass;
+ import com.thoughtworks.qdox.model.JavaMethod;
+ import com.thoughtworks.qdox.model.JavaParameter;
++import com.thoughtworks.qdox.model.Type;
+ 
+ import java.io.File;
+ import java.io.IOException;
+-import java.util.*;
++import java.util.Arrays;
+ 
+ /**
+  * Qdox-based implementation of ParanamerGenerator which parses Java source files to processSourcePath
+@@ -45,6 +46,7 @@
+  * @author Paul Hammant
+  * @author Mauro Talevi
+  * @author Guilherme Silveira
++ * @author Victor Williams Stafusa da Silva
+  */
+ public class QdoxParanamerGenerator implements ParanamerGenerator {
+ 
+@@ -52,6 +54,7 @@
+     private static final String NEWLINE = "\n";
+     private static final String COMMA = ",";
+     private static final String EMPTY = "";
++    private static final String BRACKETS = "[]";
+ 
+     public QdoxParanamerGenerator() {
+     }
+@@ -72,9 +75,8 @@
+     public void processClasses(JavaClass[] classes, String outputPath) throws IOException {
+         for (JavaClass javaClass : classes) {
+             String content = addMethods(javaClass.getMethods());
+-            // TODO problem with inner classes
+-            makeEnhancer().enhance(new File(outputPath, javaClass.getFullyQualifiedName().replace('.', File.separatorChar) + ".class"), content);
+-
++            File f = new File(outputPath, javaClass.getFullyQualifiedName().replace('.', File.separatorChar) + ".class");
++            makeEnhancer().enhance(f, content);
+         }
+     }
+ 
+@@ -84,60 +86,59 @@
+ 
+     private String addMethods(JavaMethod[] methods) {
+         Arrays.sort(methods);
+-        StringBuffer buffer = new StringBuffer();
++        StringBuilder buffer = new StringBuilder();
+         for (JavaMethod javaMethod : methods) {
+-            if (!Arrays.asList(javaMethod.getModifiers()).contains("private")
+-                    && javaMethod.getParameters().length > 0) {
+-                buffer.append(addMethod(javaMethod));
++            if (!Arrays.asList(javaMethod.getModifiers()).contains("private") && javaMethod.getParameters().length > 0) {
++                addMethod(buffer, javaMethod);
+             }
+         }
+         return buffer.toString();
+     }
+ 
+-    private String addMethod(JavaMethod method) {
++    private void addMethod(StringBuilder sb, JavaMethod method) {
+         JavaParameter[] parameters = method.getParameters();
+-        return format(method, parameters);
++        formatMethod(sb, method, parameters);
+     }
+ 
+-    private String format(JavaMethod method, JavaParameter[] parameters) {
+-        StringBuffer sb = new StringBuffer();
++    private void formatMethod(StringBuilder sb, JavaMethod method, JavaParameter[] parameters) {
+         String methodName = method.getName();
+         if (method.isConstructor()) {
+             methodName = "<init>";
+         }
+-        String parameterTypes = getParameterTypes(parameters);
+-        sb.append(formatLine(methodName, parameterTypes, getParameterNames(parameters)));
+-        return sb.toString();
+-    }
+ 
+-    private String formatLine(String methodName, String paramTypes, String paramNames){
+-        StringBuffer sb = new StringBuffer();
+         // processClasses line structure:  methodName paramTypes paramNames
+         sb.append(methodName).append(SPACE);
+-        if ( paramTypes.length() > 0 ) {
+-            sb.append(paramTypes.trim()).append(SPACE);
+-            sb.append(paramNames.trim()).append(SPACE);
++        if (parameters.length > 0) {
++            formatParameterTypes(sb, parameters);
++            sb.append(SPACE);
++            formatParameterNames(sb, parameters);
++            sb.append(SPACE);
+         }
+         sb.append(NEWLINE);
+-        return sb.toString();
+     }
+ 
+-    private String getParameterNames(JavaParameter[] parameters) {
+-        StringBuffer sb = new StringBuffer();
++    private void formatParameterNames(StringBuilder sb, JavaParameter[] parameters) {
+         for (int i = 0; i < parameters.length; i++) {
+             sb.append(parameters[i].getName());
+             sb.append(comma(i, parameters.length));
+         }
+-        return sb.toString();
+     }
+ 
+-    private String getParameterTypes(JavaParameter[] parameters) {
+-        StringBuffer sb = new StringBuffer();
++    private void formatParameterTypes(StringBuilder sb, JavaParameter[] parameters) {
++
+         for (int i = 0; i < parameters.length; i++) {
+-            sb.append(parameters[i].getType());
++
++            // This code is a bit dodgy to ensure that both inner classes and arrays shows up correctly.
++            // It is based in the Type.toString() method, but using getFullyQualifiedName() instead of getValue().
++            Type t = parameters[i].getType();
++            sb.append(t.getFullyQualifiedName());
++            int dimensions = t.getDimensions();
++            for (int d = 0; d < dimensions; d++) {
++                sb.append(BRACKETS);
++            }
++
+             sb.append(comma(i, parameters.length));
+         }
+-        return sb.toString();
+     }
+ 
+     private String comma(int index, int size) {
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Chicken.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Chicken.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Chicken.java	Wed Dec 31 22:00:00 1969
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Chicken.java	Tue May 28 21:11:13 2013
+@@ -0,0 +1,52 @@
++/***
++ *
++ * Copyright (c) 2007 Paul Hammant
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++package com.thoughtworks.paranamer.generator;
++
++class Fox {
++    public void foxMethod(int foxEatsChicken) {
++    }
++}
++
++public class Chicken {
++    public void aMethod(String aParamater) {
++    }
++
++    // Exports a non-public class through a public API, but we don't care about that.
++    public void strangeMethod(Fox aFox) {
++    }
++}
++
++class Dog {
++    public void woof(String woofWoof) {
++    }
++
++    public void crazyMethod(Chicken aChicken) {
++    }
++}
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Elephant.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Elephant.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Elephant.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Elephant.java	Tue May 28 19:45:50 2013
+@@ -32,17 +32,17 @@
+ import java.util.Map;
+ 
+ public class Elephant {
+-    private Map<?,?> map;
++    private Map<?, ?> map;
+ 
+-    public Elephant(Map<?,?> map) {
++    public Elephant(Map<?, ?> map) {
+         this.map = map;
+     }
+ 
+-    public Map<?,?> getMap() {
++    public Map<?, ?> getMap() {
+         return map;
+     }
+ 
+-    public void setMap(Map<?,?> map) {
++    public void setMap(Map<?, ?> map) {
+         this.map = map;
+     }
+ 
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Goat.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Goat.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Goat.java	Wed Dec 31 22:00:00 1969
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Goat.java	Tue May 28 21:14:31 2013
+@@ -0,0 +1,41 @@
++/***
++ *
++ * Copyright (c) 2007 Paul Hammant
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++package com.thoughtworks.paranamer.generator;
++
++/**
++ * This class has evil purposes. It is called chameleon, though it is in the Goat.java class.
++ * It's purpose is to check what happens when the file name does not matches the class name.
++ */
++class Chameleon {
++
++    public int thisIsCrazy(Monkey veryCrazy) {
++        return 0;
++    }
++}
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Horse.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Horse.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Horse.java	Wed Dec 31 22:00:00 1969
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Horse.java	Tue May 28 19:47:31 2013
+@@ -0,0 +1,51 @@
++/***
++ *
++ * Copyright (c) 2007 Paul Hammant
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++package com.thoughtworks.paranamer.generator;
++
++public class Horse<E extends Elephant> {
++    private E dumbo;
++
++    public Horse(E dumbo) {
++        this.dumbo = dumbo;
++    }
++
++    public E getElephant() {
++        return dumbo;
++    }
++
++    public void setElephant(E dumboss) {
++        this.dumbo = dumboss;
++    }
++
++    public E[] elephantArrays(E[] theArrayParameter, String otherParameter) {
++        return theArrayParameter;
++    }
++
++}
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Monkey.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Monkey.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Monkey.java	Wed Dec 31 22:00:00 1969
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\Monkey.java	Tue May 28 20:14:14 2013
+@@ -0,0 +1,47 @@
++/***
++ *
++ * Copyright (c) 2007 Paul Hammant
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++package com.thoughtworks.paranamer.generator;
++
++public class Monkey {
++
++    public static class Banana {
++        public void bananaMethod(int number) {
++        }
++    }
++
++    public class Avocado {
++    }
++
++    public Monkey(Banana monkeyEatsBanana) {
++    }
++
++    public void aMethod(Avocado theInnerAvocado) {
++    }
++}
+diff -r -u -P --exclude=*.class --exclude=*.xml --exclude=*.txt --exclude=*.properties --exclude=*.jar --exclude=*.html \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\QDoxParanamerTestCase.java \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\QDoxParanamerTestCase.java
+--- \old\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\QDoxParanamerTestCase.java	Fri Nov 30 07:02:44 2012
++++ \new\paranamer-git-master\paranamer-generator\src\test\com\thoughtworks\paranamer\generator\QDoxParanamerTestCase.java	Tue May 28 21:23:33 2013
+@@ -40,6 +40,9 @@
+ 
+ public class QDoxParanamerTestCase {
+ 
++    private static final String PACKAGE_PREFIX = "com.thoughtworks.paranamer.generator.";
++    private static final String PATH_PREFIX = "/target/test-classes/" + PACKAGE_PREFIX.replace('.', '/');
++    
+     private String root;
+ 
+     @Before
+@@ -49,31 +52,84 @@
+         generator.processSourcePath(root + "/src/test", root + "/target/test-classes/");
+     }
+ 
+-    @Test
+-    public void testFoo() throws IOException, NoSuchFieldException, IllegalAccessException {
++    private String paranamerDataOf(String className) throws IOException, NoSuchFieldException, IllegalAccessException {
++        return paranamerDataOf(className, className);
++    }
+ 
+-        FileInputStream fis = new FileInputStream(root + "/target/test-classes/com/thoughtworks/paranamer/generator/Elephant.class");
+-        byte[] bytes = new byte[4000];
++    private String paranamerDataOf(String className, String fileName) throws IOException, NoSuchFieldException, IllegalAccessException {
++        FileInputStream fis = new FileInputStream(root + PATH_PREFIX + fileName + ".class");
++        byte[] bytes = new byte[40000];
+         int read = fis.read(bytes);
+         byte[] bytes2 = new byte[read];
+-        System.arraycopy(bytes,0,bytes2,0,read);
++        System.arraycopy(bytes, 0, bytes2, 0, read);
+ 
+         MyClassLoader cl = new MyClassLoader();
+ 
+-        Class<?> enhancedClazz = cl.defineEnhancerClass(bytes2, read);
++        Class<?> enhancedClazz = cl.defineEnhancerClass(className, bytes2, read);
+         Field f = enhancedClazz.getField("__PARANAMER_DATA");
+-        Assert.assertNotNull(f);
+-        String s1 = ((String) f.get(null));
+-        String s2 = ("<init> java.util.Map map \n" +
+-                        "longArray long[] longs \n" +
+-                        "setMap java.util.Map map \n");
++        f.setAccessible(true);
++        return (String) f.get(null);
++    }
++
++    @Test
++    public void testSimpleClassGeneration() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Elephant");
++        String s2 = "<init> java.util.Map map \n"
++                + "longArray long[] longs \n"
++                + "setMap java.util.Map map \n";
++        Assert.assertEquals(s2, s1);
++    }
++
++    @Test
++    public void testGenericClassGeneration() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Horse");
++        String s2 = "elephantArrays E[],java.lang.String theArrayParameter,otherParameter \n"
++                + "<init> E dumbo \n"
++                + "setElephant E dumboss \n";
++        Assert.assertEquals(s2, s1);
++    }
++
++    @Test
++    public void testGenerationWithInnerClass1() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Monkey");
++        String s2 = "<init> " + PACKAGE_PREFIX + "Monkey$Banana monkeyEatsBanana \n"
++                + "aMethod " + PACKAGE_PREFIX + "Monkey$Avocado theInnerAvocado \n";
++        Assert.assertEquals(s2, s1);
++    }
++
++    @Test
++    public void testGenerationWithInnerClass2() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Monkey$Banana");
++        String s2 = "bananaMethod int number \n";
++        Assert.assertEquals(s2, s1);
++    }
++
++    @Test
++    public void testGenerationWithMultipleClassesAtSameFile1() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Chicken");
++        String s2 = "aMethod java.lang.String aParamater \n"
++                + "strangeMethod " + PACKAGE_PREFIX + "Fox aFox \n";
+         Assert.assertEquals(s2, s1);
+     }
+ 
++    @Test
++    public void testGenerationWithMultipleClassesAtSameFile2() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Dog");
++        String s2 = "crazyMethod " + PACKAGE_PREFIX + "Chicken aChicken \n"
++                + "woof java.lang.String woofWoof \n";
++        Assert.assertEquals(s2, s1);
++    }
++
++    @Test
++    public void testGenerationWithClassMismatchingFilename() throws IOException, NoSuchFieldException, IllegalAccessException {
++        String s1 = paranamerDataOf("Chameleon");
++        String s2 = "thisIsCrazy " + PACKAGE_PREFIX + "Monkey veryCrazy \n";
++        Assert.assertEquals(s2, s1);
++    }
+ 
+     private static class MyClassLoader extends ClassLoader {
+-        public Class<?> defineEnhancerClass(byte[] bytes, int length) {
+-            return defineClass("com.thoughtworks.paranamer.generator.Elephant", bytes, 0, bytes.length);
++        public Class<?> defineEnhancerClass(String name, byte[] bytes, int length) {
++            return defineClass(PACKAGE_PREFIX + name, bytes, 0, bytes.length);
+         }
+     }
+ }

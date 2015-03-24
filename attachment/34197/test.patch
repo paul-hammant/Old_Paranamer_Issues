@@ -1,0 +1,29 @@
+Index: paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java
+===================================================================
+--- paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(revision 215)
++++ paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(working copy)
+@@ -108,6 +108,13 @@
+         }
+     }
+ 
++    public void testRetrievesParameterNamesFromMethodWithArray() throws SecurityException, NoSuchMethodException {
++        BytecodeReadingParanamer asm = new BytecodeReadingParanamer();
++        String[] names = asm.lookupParameterNames(SpecificMethodSearchable.class.getMethod(
++                "stringArray", new Class[] { String[].class }));
++        assertThatParameterNamesMatch("a", names);
++    }
++
+     public static class SpecificMethodSearchable {
+ 
+         String foo;
+@@ -152,6 +159,10 @@
+         public void unsupportedParameterNames(String arg0) {
+ 
+         }
++
++        public void stringArray(String[] a) {
++
++        }
+     }
+ 
+     public static class SearchableTypeByMethodName {

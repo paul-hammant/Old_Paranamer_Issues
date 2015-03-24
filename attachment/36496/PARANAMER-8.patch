@@ -1,0 +1,36 @@
+Index: paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java
+===================================================================
+--- paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(revision 233)
++++ paranamer/src/test/com/thoughtworks/paranamer/BytecodeReadingParanamerTestCase.java	(working copy)
+@@ -128,6 +128,17 @@
+         assertThatParameterNamesMatch("foo", names);
+     }
+ 
++    public void testRetrievesParameterNamesFromBootstrapClassLoader() throws SecurityException, NoSuchMethodException {
++        BytecodeReadingParanamer asm = new BytecodeReadingParanamer();
++        Constructor ctor = Integer.class.getConstructor(new Class[] { int.class });
++        try {
++            asm.lookupParameterNames(ctor);
++            fail("Should not find names for classes loaded by the bootstrap class loader.");
++        } catch(ParameterNamesNotFoundException ex) {
++            // ok
++        }
++    }
++
+     public static class SpecificMethodSearchable {
+ 
+         String foo;
+Index: paranamer/src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java
+===================================================================
+--- paranamer/src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java	(revision 233)
++++ paranamer/src/java/com/thoughtworks/paranamer/BytecodeReadingParanamer.java	(working copy)
+@@ -117,6 +117,9 @@
+ 
+     private InputStream getClassAsStream(Class clazz) {
+         ClassLoader classLoader = clazz.getClassLoader();
++        if (classLoader == null) {
++            classLoader = ClassLoader.getSystemClassLoader();
++        }
+         return getClassAsStream(classLoader, clazz.getName());
+     }
+ 
